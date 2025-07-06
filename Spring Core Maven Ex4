@@ -1,0 +1,45 @@
+
+
+class BookRepository {
+    public void saveBook(String title) {
+        System.out.println("BookRepository: Book saved -> " + title);
+    }
+}
+
+class BookService {
+    private BookRepository bookRepository;
+
+    public BookService(BookRepository repo) {
+        this.bookRepository = repo;
+    }
+
+    public void addBook(String title) {
+        System.out.println("BookService: Adding book...");
+        bookRepository.saveBook(title);
+    }
+}
+
+class BookController {
+    private BookService bookService;
+
+    public BookController(BookService service) {
+        this.bookService = service;
+    }
+
+    public void handleAddBookRequest(String title) {
+        System.out.println("BookController: Received add request");
+        bookService.addBook(title);
+    }
+}
+
+public class Main {
+    public static void main(String[] args) {
+     
+        BookRepository repo = new BookRepository();
+        BookService service = new BookService(repo);
+        BookController controller = new BookController(service);
+
+      
+        controller.handleAddBookRequest("Atomic Habits");
+    }
+}
