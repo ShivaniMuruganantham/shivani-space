@@ -1,0 +1,30 @@
+SessionFactory factory = new Configuration()
+    .configure("hibernate.cfg.xml")
+    .addResource("Employee.hbm.xml")
+    .buildSessionFactory();
+
+Session session = factory.openSession();
+Transaction tx = null;
+
+try {
+    tx = session.beginTransaction();
+
+    Employee emp = new Employee("Alice", "Walker", 60000);
+    session.save(emp);
+
+    List<Employee> list = session.createQuery("from Employee").list();
+    for (Employee e : list) {
+        System.out.println(e.getFirstName());
+    }
+
+    Employee empToDelete = session.get(Employee.class, emp.getId());
+    session.delete(empToDelete);
+
+    tx.commit();
+} catch (Exception e) {
+    if (tx != null) tx.rollback();
+    e.printStackTrace();
+} finally {
+    session.close();
+    factory.close();
+}
