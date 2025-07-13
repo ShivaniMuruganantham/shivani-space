@@ -1,0 +1,125 @@
+<bean id="dep1" class="com.example.model.Department">
+    <property name="id" value="1"/>
+    <property name="name" value="HR"/>
+</bean>
+
+<bean id="emp1" class="com.example.model.Employee">
+    <property name="id" value="1"/>
+    <property name="name" value="John"/>
+    <property name="department" ref="dep1"/>
+</bean>
+
+<util:list id="employeeList" value-type="com.example.model.Employee">
+    <ref bean="emp1"/>
+    <!-- more employees -->
+</util:list>
+🧠 PART 2: Setup DAO Layer
+EmployeeDao.java
+java
+Copy
+Edit
+@Component
+public class EmployeeDao {
+
+    private static List<Employee> EMPLOYEE_LIST;
+
+    @Autowired
+    public EmployeeDao(List<Employee> employeeList) {
+        EMPLOYEE_LIST = employeeList;
+    }
+
+    public List<Employee> getAllEmployees() {
+        return EMPLOYEE_LIST;
+    }
+}
+🧠 PART 3: Setup Service Layer
+EmployeeService.java
+java
+Copy
+Edit
+@Service
+public class EmployeeService {
+
+    @Autowired
+    private EmployeeDao employeeDao;
+
+    @Transactional
+    public List<Employee> getAllEmployees() {
+        return employeeDao.getAllEmployees();
+    }
+}
+🌐 PART 4: Setup REST Controller
+EmployeeController.java
+java
+Copy
+Edit
+@RestController
+public class EmployeeController {
+
+    @Autowired
+    private EmployeeService employeeService;
+
+    @GetMapping("/employees")
+    public List<Employee> getAllEmployees() {
+        return employeeService.getAllEmployees();
+    }
+}
+✅ Test in Postman:
+
+bash
+Copy
+Edit
+GET http://localhost:8080/employees
+🏢 PART 5: Create REST Service for Departments
+DepartmentDao.java
+java
+Copy
+Edit
+@Component
+public class DepartmentDao {
+    private static List<Department> DEPARTMENT_LIST;
+
+    @Autowired
+    public DepartmentDao(List<Department> departmentList) {
+        DEPARTMENT_LIST = departmentList;
+    }
+
+    public List<Department> getAllDepartments() {
+        return DEPARTMENT_LIST;
+    }
+}
+DepartmentService.java
+java
+Copy
+Edit
+@Service
+public class DepartmentService {
+    @Autowired
+    private DepartmentDao departmentDao;
+
+    public List<Department> getAllDepartments() {
+        return departmentDao.getAllDepartments();
+    }
+}
+DepartmentController.java
+java
+Copy
+Edit
+@RestController
+public class DepartmentController {
+
+    @Autowired
+    private DepartmentService departmentService;
+
+    @GetMapping("/departments")
+    public List<Department> getAllDepartments() {
+        return departmentService.getAllDepartments();
+    }
+}
+✅ Test in Postman:
+
+bash
+Copy
+Edit
+GET http://localhost:8080/departments
+
