@@ -1,0 +1,172 @@
+➤ Add Dependency in pom.xml:
+xml
+Copy
+Edit
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-security</artifactId>
+</dependency>
+👥 2. In-Memory Authentication & Role-Based Access
+🔹 SecurityConfig.java
+java
+Copy
+Edit
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Override
+    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+        auth.inMemoryAuthentication()
+            .withUser("admin").password(passwordEncoder().encode("pwd")).roles("ADMIN")
+            .and()
+            .withUser("user").password(passwordEncoder().encode("pwd")).roles("USER");
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Override
+    protected void configure(HttpSecurity httpSecurity) throws Exception {
+        httpSecurity.csrf().disable().httpBasic()
+            .and().authorizeRequests()
+            .antMatchers("/authenticate").hasAnyRole("USER", "ADMIN")
+            .anyRequest().authenticated();
+    }
+}
+🧾 3. JWT Token Creation Flow
+🔹 Steps:
+Client calls /authenticate with basic auth (user:pwd)
+
+Server returns a JWT token
+
+Client uses Authorization: Bearer <token> for further requests
+
+A filter verifies the JWT on each request
+
+📦 4. Add JWT Library in pom.xml
+xml
+Copy
+Edit
+<dependency>
+    <groupId>io.jsonwebtoken</groupId>
+    <artifactId>jjwt</artifactId>
+    <version>0.9.0</version>
+</dependency>
+🌐 5. Authentication Controller
+🔹 AuthenticationController.java
+java
+Copy
+Edit
+@RestController
+public class AuthenticationController {
+
+    @GetMapping("/authenticate")
+    public Map<String, String> authenticate(@RequestHeader("Authorization") String authHeader) {
+        String user = getUser(authHeader);
+        String token = generateJwt(user);
+
+        Map<String, String> map = new HashMap<>();
+        map.put("token", token);
+        return map;
+    }
+
+    private String getUser(String authHeader) {
+        String encoded = authHeader.substring("Basic ".length());
+        byte[] decoded = Base64.getDecoder().decode(encoded);
+        return new String(decoded).split(":")[0];
+    }
+
+    private String generateJwt(String user) {
+        return Jwts.builder()
+                .setSubject(user)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + 1200000)) // 20 min
+                .signWith(SignatureAlgorithm.HS256, "secretkey")
+                .compact();
+    }
+}
+🛡️ 6. JWT Authorization Filter
+🔹 JwtAuthorizationFilter.java
+java
+Copy
+Edit
+public class JwtAuthorizationFilter extends BasicAuthenticationFilter {
+
+    public JwtAuthorizationFilter(AuthenticationManager authManager) {
+        super(authManager);
+    }
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
+            throws IOException, ServletException {
+        String header = req.getHeader("Authorization");
+
+        if (header == null || !header.startsWith("Bearer ")) {
+            chain.doFilter(req, res);
+            return;
+        }
+
+        UsernamePasswordAuthenticationToken authentication = getAuthentication(req);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        chain.doFilter(req, res);
+    }
+
+    private UsernamePasswordAuthenticationToken getAuthentication(HttpServletRequest req) {
+        String token = req.getHeader("Authorization");
+        if (token != null) {
+            try {
+                Claims claims = Jwts.parser()
+                    .setSigningKey("secretkey")
+                    .parseClaimsJws(token.replace("Bearer ", ""))
+                    .getBody();
+
+                String user = claims.getSubject();
+
+                if (user != null) {
+                    return new UsernamePasswordAuthenticationToken(user, null, new ArrayList<>());
+                }
+            } catch (JwtException e) {
+                return null;
+            }
+        }
+        return null;
+    }
+}
+🔧 7. Add JWT Filter in SecurityConfig.java
+Update configure(HttpSecurity httpSecurity):
+
+java
+Copy
+Edit
+@Override
+protected void configure(HttpSecurity httpSecurity) throws Exception {
+    httpSecurity.csrf().disable().httpBasic().and()
+        .authorizeRequests()
+        .antMatchers("/authenticate").hasAnyRole("USER", "ADMIN")
+        .anyRequest().authenticated()
+        .and()
+        .addFilter(new JwtAuthorizationFilter(authenticationManager()));
+}
+🧪 8. Test JWT with curl/Postman
+Get token:
+bash
+Copy
+Edit
+curl -s -u user:pwd http://localhost:8090/authenticate
+Use token in request:
+bash
+Copy
+Edit
+curl -s -H "Authorization: Bearer <paste_token_here>" http://localhost:8090/countries
+If token is tampered or expired, it will return:
+
+json
+Copy
+Edit
+{
+  "status": 403,
+  "error": "Forbidden"
+}
